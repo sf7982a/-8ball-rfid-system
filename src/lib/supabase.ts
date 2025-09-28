@@ -32,12 +32,12 @@ export async function getCurrentUserWithOrg() {
     return { user: null, profile: null, organization: null, error: authError }
   }
 
-  // Get user profile with organization
+  // Get user profile with organization (specify exact relationship to avoid PGRST201)
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select(`
       *,
-      organization:organizations(*)
+      organization:organizations!profiles_organization_id_fkey(*)
     `)
     .eq('id', user.id)
     .single()
