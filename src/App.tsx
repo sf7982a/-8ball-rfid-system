@@ -1,6 +1,8 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ProtectedRoute } from './components/auth/ProtectedRoute'
+import ErrorBoundary from './components/ErrorBoundary'
+import LoadingWithTimeout from './components/LoadingWithTimeout'
 
 // Import your page components
 import LoginPage from './pages/auth/LoginPage'
@@ -12,6 +14,9 @@ import { LocationsPage } from './pages/locations/LocationsPage'
 import ReportsPage from './pages/reports/ReportsPage'
 import TeamPage from './pages/team/TeamPage'
 import SettingsPage from './pages/settings/SettingsPage'
+import VariancePage from './pages/dashboard/VariancePage'
+import IntegrationsPage from './pages/integrations/IntegrationsPage'
+import AdminPage from './pages/admin/AdminPage'
 
 // Layout component
 import AppLayout from './components/layout/AppLayout'
@@ -20,12 +25,19 @@ import AppLayout from './components/layout/AppLayout'
 
 function AppRoutes() {
   const { loading } = useAuth()
-  
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-      </div>
+      <LoadingWithTimeout
+        message="Authenticating..."
+        timeout={12000}
+        onTimeout={() => {
+          console.warn('Authentication taking longer than expected')
+        }}
+        onRetry={() => {
+          window.location.reload()
+        }}
+      />
     )
   }
   
@@ -90,7 +102,31 @@ function AppRoutes() {
             </AppLayout>
           </ProtectedRoute>
         } />
-        
+
+        <Route path="/variance" element={
+          <ProtectedRoute requiredRole="manager">
+            <AppLayout>
+              <VariancePage />
+            </AppLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/integrations" element={
+          <ProtectedRoute requiredRole="manager">
+            <AppLayout>
+              <IntegrationsPage />
+            </AppLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/admin" element={
+          <ProtectedRoute requiredRole="super_admin">
+            <AppLayout>
+              <AdminPage />
+            </AppLayout>
+          </ProtectedRoute>
+        } />
+
         <Route path="/settings" element={
           <ProtectedRoute>
             <AppLayout>
@@ -108,11 +144,13 @@ function AppRoutes() {
 
 function App() {
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
-    </div>
+    <ErrorBoundary>
+      <div className="min-h-screen bg-background text-foreground">
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
+      </div>
+    </ErrorBoundary>
   )
 }
 

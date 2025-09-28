@@ -35,91 +35,68 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [organization, setOrganization] = useState<Organization | null>(null)
   const [loading, setLoading] = useState(true)
-  const [initialized, setInitialized] = useState(false)
 
-  // Load user profile and organization data
-  const loadUserData = useCallback(async (authUser: User) => {
-    setUser(authUser)
-    
+  // Simplified user data loading
+  const loadUserData = useCallback(async () => {
     try {
       const { profile, organization, error } = await getCurrentUserWithOrg()
-      
+
       if (error) {
-        console.error('Error loading user data:', error)
         setProfile(null)
         setOrganization(null)
         return
       }
-      
+
       setProfile(profile)
       setOrganization(organization)
     } catch (err) {
-      console.error('Exception loading user data:', err)
       setProfile(null)
       setOrganization(null)
     }
   }, [])
 
-  // Load initial auth state
+  // Simple initial session load
   useEffect(() => {
-    let mounted = true
-    
-    async function getInitialSession() {
-      const { data: { session }, error } = await supabase.auth.getSession()
-      
-      if (!mounted) return
-      
-      if (error) {
-        console.error('Error getting session:', error)
-        setLoading(false)
-        return
-      }
+    const loadSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
 
-      setSession(session)
-      
-      if (session?.user) {
-        await loadUserData(session.user)
-      }
-      
-      if (mounted) {
+        setSession(session)
+        setUser(session?.user || null)
+
+        if (session?.user) {
+          await loadUserData()
+        }
+
         setLoading(false)
-        setInitialized(true)
+      } catch (error) {
+        setLoading(false)
       }
     }
 
-    getInitialSession()
-    
-    return () => {
-      mounted = false
-    }
-  }, []) // Remove loadUserData dependency
+    loadSession()
+  }, [])
 
   // Listen for auth changes
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        // Only process auth changes after initial load to prevent loops
-        if (!initialized) return
-        
-        console.log('Auth state change:', event, session?.user?.id)
         setSession(session)
-        
+        setUser(session?.user || null)
+
         if (session?.user) {
-          setUser(session.user)
-          // Try to load profile data, but don't block on it
-          loadUserData(session.user).catch(console.error)
+          await loadUserData()
         } else {
-          setUser(null)
           setProfile(null)
           setOrganization(null)
         }
-        
+
         setLoading(false)
       }
     )
 
     return () => subscription.unsubscribe()
-  }, [initialized]) // Only depend on initialized state
+  }, [loadUserData])
 
   // Sign in
   const signIn = useCallback(async (email: string, password: string) => {

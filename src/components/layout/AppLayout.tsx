@@ -20,8 +20,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
     { name: 'Scan', href: '/scan', icon: '📱' },
     { name: 'Locations', href: '/locations', icon: '📍', requireRole: 'manager' },
     { name: 'Reports', href: '/reports', icon: '📈', requireRole: 'manager' },
+    { name: 'Variance', href: '/variance', icon: '⚠️', requireRole: 'manager' },
+    { name: 'Integrations', href: '/integrations', icon: '🔌', requireRole: 'manager' },
     { name: 'Team', href: '/team', icon: '👥', requireRole: 'company_admin' },
-    { name: 'Settings', href: '/settings', icon: '⚙️' },
+    { name: 'Admin', href: '/admin', icon: '⚙️', requireRole: 'super_admin' },
+    { name: 'Settings', href: '/settings', icon: '🔧' },
   ]
 
   // Filter navigation based on user role

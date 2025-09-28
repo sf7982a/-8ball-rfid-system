@@ -1,20 +1,29 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { InventoryAnalysisChart } from '../../components/reports/InventoryAnalysisChart'
 import { InventoryTrends } from '../../components/reports/InventoryTrends'
+import { BusinessInsightsPanel } from '../../components/reports/BusinessInsightsPanel'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartErrorBoundary } from '@/components/ui/ErrorBoundary'
-import { BarChart3, TrendingUp, FileText, Calendar } from 'lucide-react'
+import { useAuth } from '../../contexts/AuthContext'
+import { BarChart3, TrendingUp, FileText, Calendar, Lightbulb } from 'lucide-react'
 
 export default function ReportsPage() {
+  const { organization } = useAuth()
+
   return (
     <div className="p-4 md:p-6 space-y-6">
       <div className="flex items-center space-x-3">
         <FileText className="h-8 w-8 text-primary" />
         <h1 className="text-2xl md:text-3xl font-bold text-foreground">Reports</h1>
       </div>
-      
-      <Tabs defaultValue="inventory-analysis" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
+
+      <Tabs defaultValue="business-insights" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-5">
+          <TabsTrigger value="business-insights" className="flex items-center space-x-2">
+            <Lightbulb className="h-4 w-4" />
+            <span className="hidden sm:inline">Business Insights</span>
+            <span className="sm:hidden">Insights</span>
+          </TabsTrigger>
           <TabsTrigger value="inventory-analysis" className="flex items-center space-x-2">
             <BarChart3 className="h-4 w-4" />
             <span className="hidden sm:inline">Inventory Analysis</span>
@@ -36,6 +45,14 @@ export default function ReportsPage() {
             <span className="sm:hidden">Custom</span>
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="business-insights" className="space-y-4">
+          <ChartErrorBoundary chartName="Business Insights">
+            <BusinessInsightsPanel
+              organizationId={organization?.id || ''}
+            />
+          </ChartErrorBoundary>
+        </TabsContent>
 
         <TabsContent value="inventory-analysis" className="space-y-4">
           <ChartErrorBoundary chartName="Inventory Analysis">

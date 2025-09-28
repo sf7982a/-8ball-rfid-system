@@ -8,13 +8,22 @@ interface ProtectedRouteProps {
   requireOrganization?: boolean
 }
 
-export function ProtectedRoute({ 
-  children, 
+export function ProtectedRoute({
+  children,
   requiredRole = 'staff',
-  requireOrganization: _requireOrganization = true 
+  requireOrganization: _requireOrganization = true
 }: ProtectedRouteProps) {
   const { user, profile, loading } = useAuth()
   const location = useLocation()
+
+  console.log('🔒 ProtectedRoute check:', {
+    loading,
+    hasUser: !!user,
+    hasProfile: !!profile,
+    profileRole: profile?.role,
+    currentPath: location.pathname,
+    requiredRole
+  })
 
   // Show loading spinner while checking auth
   if (loading) {
@@ -25,13 +34,24 @@ export function ProtectedRoute({
     )
   }
 
-  // Redirect to login if not authenticated - but only if we're not already on login page
-  if (!user && location.pathname !== '/login') {
+  // Avoid redirect loops by checking if we're already on the login page
+  const isOnLoginPage = location.pathname === '/login' || location.pathname === '/signup'
+
+  // Redirect to login if not authenticated - but only if we're not already on login/signup
+  if (!user && !isOnLoginPage) {
+    console.log('🔒 Redirecting to login: no user')
     return <Navigate to="/login" state={{ from: location }} replace />
   }
 
-  // Redirect to login if no profile exists (for now, until setup pages are created)
-  if (user && !profile && location.pathname !== '/login') {
+  // If on login page and we have a user, don't create a redirect loop
+  if (user && isOnLoginPage) {
+    console.log('🔒 User authenticated, redirecting from login to dashboard')
+    return <Navigate to="/dashboard" replace />
+  }
+
+  // Redirect to login if no profile exists - but only if not on login page
+  if (user && !profile && !isOnLoginPage) {
+    console.log('🔒 Redirecting to login: user exists but no profile')
     return <Navigate to="/login" replace />
   }
 
@@ -60,10 +80,10 @@ export function ProtectedRoute({
       'company_admin': 3,
       'super_admin': 4
     }
-    
+
     const userLevel = roleHierarchy[profile?.role as keyof typeof roleHierarchy] || 0
     const requiredLevel = roleHierarchy[requiredRole as keyof typeof roleHierarchy] || 0
-    
+
     return userLevel >= requiredLevel
   })()
 

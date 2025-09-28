@@ -8,6 +8,9 @@ import {
   Users,
   BarChart3,
   Scan,
+  AlertTriangle,
+  Zap,
+  Shield,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 
@@ -15,19 +18,22 @@ const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Inventory', href: '/inventory', icon: Package },
   { name: 'Scan', href: '/scan', icon: Scan },
-  { name: 'Locations', href: '/locations', icon: MapPin },
-  { name: 'Reports', href: '/reports', icon: BarChart3 },
+  { name: 'Locations', href: '/locations', icon: MapPin, roles: ['manager', 'company_admin', 'super_admin'] },
+  { name: 'Reports', href: '/reports', icon: BarChart3, roles: ['manager', 'company_admin', 'super_admin'] },
+  { name: 'Variance', href: '/variance', icon: AlertTriangle, roles: ['manager', 'company_admin', 'super_admin'] },
+  { name: 'Integrations', href: '/integrations', icon: Zap, roles: ['manager', 'company_admin', 'super_admin'] },
   { name: 'Team', href: '/team', icon: Users, roles: ['company_admin', 'super_admin'] },
+  { name: 'Admin', href: '/admin', icon: Shield, roles: ['super_admin'] },
   { name: 'Settings', href: '/settings', icon: Settings },
 ]
 
 export function Navigation() {
   const location = useLocation()
-  const { user } = useAuth()
+  const { profile } = useAuth()
 
   const filteredNavigation = navigation.filter((item) => {
     if (!item.roles) return true
-    return item.roles.includes(user?.role || '')
+    return item.roles.includes(profile?.role || '')
   })
 
   return (

@@ -19,8 +19,20 @@ import { Button } from '@/components/ui/button'
 import { RefreshCw, Package, DollarSign, AlertTriangle, TrendingUp } from 'lucide-react'
 
 export default function DashboardPage() {
-  const { organization } = useAuth()
+  const { organization, user, profile } = useAuth()
   const [loading, setLoading] = useState(true)
+
+  // Debug authentication state
+  useEffect(() => {
+    console.log('Dashboard Auth State:', {
+      hasUser: !!user,
+      hasProfile: !!profile,
+      hasOrganization: !!organization,
+      organizationId: organization?.id,
+      userId: user?.id,
+      userEmail: user?.email
+    })
+  }, [user, profile, organization])
   const [refreshing, setRefreshing] = useState(false)
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null)
   
@@ -31,11 +43,21 @@ export default function DashboardPage() {
   const [lowStockItems, setLowStockItems] = useState<LowStockItem[]>([])
 
   const loadDashboardData = async (showRefreshState = false) => {
-    if (!organization?.id) return
-    
+    console.log('loadDashboardData called:', {
+      organizationId: organization?.id,
+      showRefreshState
+    })
+
+    if (!organization?.id) {
+      console.warn('No organization ID available, skipping dashboard data load')
+      return
+    }
+
     try {
       if (showRefreshState) setRefreshing(true)
       else setLoading(true)
+
+      console.log('Making dashboard API calls for org:', organization.id)
 
       const [stats, locations, brands, types, lowStock] = await Promise.all([
         DashboardService.getDashboardStats(organization.id),
@@ -44,6 +66,14 @@ export default function DashboardPage() {
         DashboardService.getTypeStats(organization.id),
         DashboardService.getLowStockItems(organization.id)
       ])
+
+      console.log('Dashboard API responses:', {
+        stats,
+        locations: locations?.length,
+        brands: brands?.length,
+        types: types?.length,
+        lowStock: lowStock?.length
+      })
 
       setDashboardStats(stats)
       setLocationStats(locations)
@@ -93,8 +123,50 @@ export default function DashboardPage() {
     )
   }
 
+  // Temporary fallback: Show basic dashboard even without organization data
+  if (!organization?.id) {
+    return (
+      <div className="p-4 md:p-6 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <h1 className="text-2xl md:text-3xl font-bold">Inventory Dashboard</h1>
+          <Button onClick={() => loadDashboardData()} disabled={loading}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Retry Loading
+          </Button>
+        </div>
+
+        <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
+          <h3 className="font-semibold text-yellow-800 mb-2">Loading Organization Data...</h3>
+          <p className="text-yellow-700 text-sm mb-3">
+            Your organization data is still loading. The dashboard will populate once authentication completes.
+          </p>
+          <div className="text-xs text-yellow-600 bg-yellow-100 p-2 rounded">
+            Auth State: user={!!user}, profile={!!profile}, organization={!!organization}
+          </div>
+        </div>
+
+        {/* Show placeholder cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="bg-white p-6 rounded-lg border shadow-sm">
+              <div className="animate-pulse">
+                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                <div className="h-8 bg-gray-200 rounded w-1/2"></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="p-4 md:p-6 space-y-6">
+      {/* Debug info */}
+      <div className="bg-blue-50 p-3 rounded text-xs mb-4">
+        Dashboard loaded! Org: {organization?.name} ({organization?.id})
+      </div>
+
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1 className="text-2xl md:text-3xl font-bold">Inventory Dashboard</h1>
         <Button 
