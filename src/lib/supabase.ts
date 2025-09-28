@@ -74,11 +74,14 @@ export async function getCurrentUserWithOrg() {
 
     console.log('✅ Supabase: User authenticated:', user.email)
 
-    // Step 1: Get user profile with graceful error handling
-    console.log('👤 Supabase: Fetching user profile...')
+    // Step 1: Get user profile with organization (explicit relationship)
+    console.log('👤 Supabase: Fetching user profile with organization...')
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('*')
+      .select(`
+        *,
+        organization:organizations!profiles_organization_id_fkey(*)
+      `)
       .eq('id', user.id)
       .single()
 
@@ -113,38 +116,24 @@ export async function getCurrentUserWithOrg() {
       }
     }
 
-    console.log('✅ Supabase: Profile loaded:', profile.email || 'no email')
+    console.log('✅ Supabase: Profile loaded:', (profile as any).email || 'no email')
 
-    // Step 2: Get organization if profile has organization_id (graceful handling)
-    let organization = null
-    const organizationId = (profile as any).organization_id
+    // Extract organization from embedded data (already fetched via JOIN)
+    const organization = (profile as any).organization || null
 
-    if (organizationId) {
-      console.log('🏢 Supabase: Fetching organization:', organizationId)
-
-      const { data: org, error: orgError } = await supabase
-        .from('organizations')
-        .select('*')
-        .eq('id', organizationId)
-        .single()
-
-      if (orgError) {
-        console.warn('⚠️ Supabase: Organization fetch error:', orgError.message)
-        // Don't treat missing organization as a fatal error
-        // User can still use the app without organization
-      } else if (org) {
-        console.log('✅ Supabase: Organization loaded:', org.name || 'unnamed')
-        organization = org
-      } else {
-        console.log('🏢 Supabase: Organization not found, continuing without it')
-      }
+    if (organization) {
+      console.log('✅ Supabase: Organization loaded via JOIN:', organization.name || 'unnamed')
     } else {
-      console.log('🏢 Supabase: No organization_id in profile, continuing without organization')
+      console.log('🏢 Supabase: No organization assigned to this profile')
     }
+
+    // Clean up profile data (remove nested organization to avoid confusion)
+    const cleanProfile = { ...(profile as any) }
+    delete cleanProfile.organization
 
     return {
       user,
-      profile,
+      profile: cleanProfile,
       organization,
       error: null
     }
