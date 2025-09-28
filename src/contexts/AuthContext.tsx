@@ -4,6 +4,7 @@ import { supabase, getCurrentUserWithOrg, hasPermission } from '../lib/supabase'
 import type { Database } from '../types/database'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
+type ProfileUpdate = Database['public']['Tables']['profiles']['Update']
 type Organization = Database['public']['Tables']['organizations']['Row']
 
 interface AuthContextType {
@@ -20,7 +21,7 @@ interface AuthContextType {
   signIn: (_email: string, _password: string) => Promise<{ error?: any }>
   signUp: (_email: string, _password: string, _metadata?: any) => Promise<{ error?: any }>
   signOut: () => Promise<void>
-  updateProfile: (_updates: Partial<Profile>) => Promise<{ error?: any }>
+  updateProfile: (_updates: ProfileUpdate) => Promise<{ error?: any }>
   
   // Permissions
   hasRole: (_role: string) => boolean
@@ -59,17 +60,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const loadSession = async () => {
       try {
+        console.log('🔍 Auth: Loading session...')
         const { data: { session } } = await supabase.auth.getSession()
 
+        console.log('✅ Auth: Session loaded:', !!session)
         setSession(session)
         setUser(session?.user || null)
 
         if (session?.user) {
+          console.log('👤 Auth: Loading user data...')
           await loadUserData()
         }
 
-        setLoading(false)
+        console.log('🏁 Auth: Loading complete')
       } catch (error) {
+        console.error('💥 Auth: Load session failed:', error)
+        // Don't fail completely on error - still set loading to false
+      } finally {
         setLoading(false)
       }
     }
@@ -80,7 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Listen for auth changes
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      async (_event, session) => {
         setSession(session)
         setUser(session?.user || null)
 
@@ -134,18 +141,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   // Update profile
-  const updateProfile = useCallback(async (updates: Partial<Profile>) => {
+  const updateProfile = useCallback(async (updates: ProfileUpdate) => {
     if (!user) return { error: 'No user logged in' }
-    
-    const { error } = await supabase
-      .from('profiles')
+
+    // Type assertion to work around Supabase typing issue
+    const profilesTable = supabase.from('profiles') as any
+    const { error } = await profilesTable
       .update(updates)
       .eq('id', user.id)
-    
+
     if (!error && profile) {
-      setProfile({ ...profile, ...updates })
+      setProfile({ ...profile, ...updates } as Profile)
     }
-    
+
     return { error }
   }, [user, profile])
 

@@ -2,7 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ProtectedRoute } from './components/auth/ProtectedRoute'
 import ErrorBoundary from './components/ErrorBoundary'
-import LoadingWithTimeout from './components/LoadingWithTimeout'
+import './utils/cacheUtils' // Initialize debug tools
 
 // Import your page components
 import LoginPage from './pages/auth/LoginPage'
@@ -17,6 +17,7 @@ import SettingsPage from './pages/settings/SettingsPage'
 import VariancePage from './pages/dashboard/VariancePage'
 import IntegrationsPage from './pages/integrations/IntegrationsPage'
 import AdminPage from './pages/admin/AdminPage'
+import { DebugAuth } from './components/auth/DebugAuth'
 
 // Layout component
 import AppLayout from './components/layout/AppLayout'
@@ -28,16 +29,12 @@ function AppRoutes() {
 
   if (loading) {
     return (
-      <LoadingWithTimeout
-        message="Authenticating..."
-        timeout={12000}
-        onTimeout={() => {
-          console.warn('Authentication taking longer than expected')
-        }}
-        onRetry={() => {
-          window.location.reload()
-        }}
-      />
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Authenticating...</p>
+        </div>
+      </div>
     )
   }
   
@@ -47,6 +44,7 @@ function AppRoutes() {
         {/* Public routes */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+        <Route path="/debug-auth" element={<DebugAuth />} />
         
         {/* Protected redirect root to dashboard */}
         <Route path="/" element={

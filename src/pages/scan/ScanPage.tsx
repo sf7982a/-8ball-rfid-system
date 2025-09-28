@@ -532,8 +532,9 @@ ${newBottles > 0 ? 'New bottles are now available in your inventory system!' : '
                 </div>
                 
                 <div className="space-y-2">
-                  <p className="text-sm font-medium">
-                    Status: {rfidState.isScanning ? (
+                  <div className="text-sm font-medium flex items-center gap-2">
+                    <span>Status:</span>
+                    {rfidState.isScanning ? (
                       <Badge className="bg-green-500/20 text-green-300 border-green-500/30">
                         🟢 Scanning Active
                       </Badge>
@@ -542,7 +543,7 @@ ${newBottles > 0 ? 'New bottles are now available in your inventory system!' : '
                         🔴 Inactive
                       </Badge>
                     )}
-                  </p>
+                  </div>
                   
                   {lastScannedRFID && (
                     <p className="text-xs text-muted-foreground">

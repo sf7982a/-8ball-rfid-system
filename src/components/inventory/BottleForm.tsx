@@ -118,9 +118,12 @@ export function BottleForm({ bottle, onSubmit, onCancel, isLoading = false }: Bo
         }
       }
 
-      // Convert "none" locationId back to empty string for submission
+      // Convert string values to numbers and handle locationId
       const submitData = {
         ...data,
+        costPrice: data.costPrice && data.costPrice !== '' ? parseFloat(data.costPrice) : undefined,
+        retailPrice: data.retailPrice && data.retailPrice !== '' ? parseFloat(data.retailPrice) : undefined,
+        currentQuantity: parseFloat(data.currentQuantity),
         locationId: data.locationId === 'none' ? '' : data.locationId
       }
       

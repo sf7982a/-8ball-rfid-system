@@ -279,8 +279,6 @@ export function InventoryTrends() {
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
-      setActivePoint({ x: payload[0]?.payload?.date, value: payload[0]?.value })
-      
       return (
         <div className="bg-background border border-border rounded-lg p-4 shadow-lg min-w-64">
           <p className="font-semibold mb-3 text-sm">{new Date(label).toLocaleDateString('en-US', { 
@@ -585,10 +583,19 @@ export function InventoryTrends() {
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart 
-                  data={chartData} 
+                <LineChart
+                  data={chartData}
                   margin={{ top: 20, right: 10, left: 10, bottom: 80 }}
                   onMouseDown={(e) => e && handleZoom(e)}
+                  onMouseMove={(e) => {
+                    if (e && e.activePayload && e.activePayload.length > 0) {
+                      setActivePoint({
+                        x: e.activePayload[0]?.payload?.date,
+                        value: e.activePayload[0]?.value
+                      })
+                    }
+                  }}
+                  onMouseLeave={() => setActivePoint(null)}
                   ref={chartRef}
                 >
                   <defs>

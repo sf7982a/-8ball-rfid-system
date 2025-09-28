@@ -39,12 +39,10 @@ async function getDefaultTierId(): Promise<string | null> {
         .single()
 
       if (!error && data) {
-        console.log(`Found tier in table: ${tableName}`)
         return data.id
       }
     } catch (error) {
-      // Continue to next table name
-      console.log(`Table ${tableName} not found, trying next...`)
+      // Silently continue to next table name (expected for non-existent tables)
     }
   }
 

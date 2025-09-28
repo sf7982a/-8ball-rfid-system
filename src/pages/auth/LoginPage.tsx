@@ -1,19 +1,22 @@
 // src/pages/auth/LoginPage.tsx
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
-import { Navigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 
 export default function LoginPage() {
   const { signIn, user, loading } = useAuth()
+  const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
-  // Redirect if already logged in
-  if (user && !loading) {
-    return <Navigate to="/dashboard" replace />
-  }
+  // Handle redirect when user is authenticated
+  useEffect(() => {
+    if (user && !loading && window.location.pathname === '/login') {
+      navigate('/dashboard', { replace: true })
+    }
+  }, [user, loading]) // navigate is stable, don't include in deps
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -21,12 +24,21 @@ export default function LoginPage() {
     setError('')
 
     const { error } = await signIn(email, password)
-    
+
     if (error) {
       setError(error.message)
     }
-    
+
     setIsLoading(false)
+  }
+
+  // Show loading spinner while auth state is initializing
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+        <div className="text-white">Loading...</div>
+      </div>
+    )
   }
 
   return (
