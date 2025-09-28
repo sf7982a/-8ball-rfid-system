@@ -2,6 +2,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ProtectedRoute } from './components/auth/ProtectedRoute'
 import ErrorBoundary from './components/ErrorBoundary'
+import { AuthErrorBoundary } from './components/auth/AuthErrorBoundary'
+import { DashboardFallback } from './components/dashboard/DashboardFallback'
 import './utils/cacheUtils' // Initialize debug tools
 
 // Import your page components
@@ -25,7 +27,7 @@ import AppLayout from './components/layout/AppLayout'
 
 
 function AppRoutes() {
-  const { loading } = useAuth()
+  const { loading, error, profile, organization } = useAuth()
 
   if (loading) {
     return (
@@ -36,6 +38,11 @@ function AppRoutes() {
         </div>
       </div>
     )
+  }
+
+  // Handle authentication errors
+  if (error && error !== 'Profile setup required') {
+    return <DashboardFallback error={error} />
   }
   
   return (
@@ -56,7 +63,9 @@ function AppRoutes() {
         <Route path="/dashboard" element={
           <ProtectedRoute>
             <AppLayout>
-              <DashboardPage />
+              <AuthErrorBoundary fallback={<DashboardFallback error="Dashboard failed to load" />}>
+                <DashboardPage />
+              </AuthErrorBoundary>
             </AppLayout>
           </ProtectedRoute>
         } />
@@ -144,9 +153,11 @@ function App() {
   return (
     <ErrorBoundary>
       <div className="min-h-screen bg-background text-foreground">
-        <AuthProvider>
-          <AppRoutes />
-        </AuthProvider>
+        <AuthErrorBoundary>
+          <AuthProvider>
+            <AppRoutes />
+          </AuthProvider>
+        </AuthErrorBoundary>
       </div>
     </ErrorBoundary>
   )

@@ -49,45 +49,97 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
 // Helper function to get current user with organization
 export async function getCurrentUserWithOrg() {
   try {
+    console.log('🔍 Supabase: Getting current user...')
     const { data: { user }, error: userError } = await supabase.auth.getUser()
 
-    if (userError || !user) {
+    if (userError) {
+      console.error('❌ Supabase: User auth error:', userError.message)
       return {
         user: null,
         profile: null,
         organization: null,
-        error: userError || new Error('No authenticated user')
+        error: userError
       }
     }
 
-    // Step 1: Get user profile
+    if (!user) {
+      console.log('👤 Supabase: No authenticated user found')
+      return {
+        user: null,
+        profile: null,
+        organization: null,
+        error: new Error('No authenticated user')
+      }
+    }
+
+    console.log('✅ Supabase: User authenticated:', user.email)
+
+    // Step 1: Get user profile with graceful error handling
+    console.log('👤 Supabase: Fetching user profile...')
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', user.id)
       .single()
 
-    if (profileError || !profile) {
+    if (profileError) {
+      console.warn('⚠️ Supabase: Profile fetch error:', profileError.message)
+
+      // Differentiate between "not found" and other errors
+      if (profileError.code === 'PGRST116' || profileError.message.includes('No rows')) {
+        return {
+          user,
+          profile: null,
+          organization: null,
+          error: new Error('Profile not found')
+        }
+      } else {
+        return {
+          user,
+          profile: null,
+          organization: null,
+          error: profileError
+        }
+      }
+    }
+
+    if (!profile) {
+      console.log('👤 Supabase: Profile data is null')
       return {
         user,
         profile: null,
         organization: null,
-        error: profileError || new Error('Profile not found')
+        error: new Error('Profile not found')
       }
     }
 
-    // Step 2: Get organization if profile has organization_id
+    console.log('✅ Supabase: Profile loaded:', profile.email || 'no email')
+
+    // Step 2: Get organization if profile has organization_id (graceful handling)
     let organization = null
-    if ((profile as any).organization_id) {
+    const organizationId = (profile as any).organization_id
+
+    if (organizationId) {
+      console.log('🏢 Supabase: Fetching organization:', organizationId)
+
       const { data: org, error: orgError } = await supabase
         .from('organizations')
         .select('*')
-        .eq('id', (profile as any).organization_id)
+        .eq('id', organizationId)
         .single()
 
-      if (!orgError) {
+      if (orgError) {
+        console.warn('⚠️ Supabase: Organization fetch error:', orgError.message)
+        // Don't treat missing organization as a fatal error
+        // User can still use the app without organization
+      } else if (org) {
+        console.log('✅ Supabase: Organization loaded:', org.name || 'unnamed')
         organization = org
+      } else {
+        console.log('🏢 Supabase: Organization not found, continuing without it')
       }
+    } else {
+      console.log('🏢 Supabase: No organization_id in profile, continuing without organization')
     }
 
     return {
@@ -96,7 +148,7 @@ export async function getCurrentUserWithOrg() {
       organization,
       error: null
     }
-  } catch (error) {
+  } catch (error: any) {
     return {
       user: null,
       profile: null,

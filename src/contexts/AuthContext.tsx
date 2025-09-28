@@ -13,16 +13,18 @@ interface AuthContextType {
   session: Session | null
   profile: Profile | null
   organization: Organization | null
-  
+
   // Loading states
   loading: boolean
-  
+  error: string | null
+
   // Actions
   signIn: (_email: string, _password: string) => Promise<{ error?: any }>
   signUp: (_email: string, _password: string, _metadata?: any) => Promise<{ error?: any }>
   signOut: () => Promise<void>
   updateProfile: (_updates: ProfileUpdate) => Promise<{ error?: any }>
-  
+  clearError: () => void
+
   // Permissions
   hasRole: (_role: string) => boolean
   canAccess: (_requiredRole: string) => boolean
@@ -36,136 +38,322 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [organization, setOrganization] = useState<Organization | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [retryCount, setRetryCount] = useState(0)
 
-  // Simplified user data loading
-  const loadUserData = useCallback(async () => {
+  // Maximum retry attempts to prevent infinite loops
+  const MAX_RETRIES = 3
+  const RETRY_DELAY = 1000 // 1 second
+
+  // Clear error function
+  const clearError = useCallback(() => {
+    setError(null)
+  }, [])
+
+  // Production-safe user data loading with retry logic
+  const loadUserData = useCallback(async (attemptNumber = 0): Promise<boolean> => {
+    if (attemptNumber >= MAX_RETRIES) {
+      console.error('❌ Auth: Max retries exceeded, giving up')
+      setError('Failed to load user data after multiple attempts')
+      return false
+    }
+
     try {
-      const { profile, organization, error } = await getCurrentUserWithOrg()
+      console.log(`🔄 Auth: Loading user data (attempt ${attemptNumber + 1}/${MAX_RETRIES})`)
 
-      if (error) {
-        setProfile(null)
-        setOrganization(null)
-        return
-      }
+      const result = await getCurrentUserWithOrg()
 
-      setProfile(profile)
-      setOrganization(organization)
-    } catch (err) {
-      setProfile(null)
-      setOrganization(null)
-    }
-  }, [])
+      if (result.error) {
+        console.warn('⚠️ Auth: Error loading user data:', result.error.message)
 
-  // Simple initial session load
-  useEffect(() => {
-    const loadSession = async () => {
-      try {
-        console.log('🔍 Auth: Loading session...')
-        const { data: { session } } = await supabase.auth.getSession()
-
-        console.log('✅ Auth: Session loaded:', !!session)
-        setSession(session)
-        setUser(session?.user || null)
-
-        if (session?.user) {
-          console.log('👤 Auth: Loading user data...')
-          await loadUserData()
-        }
-
-        console.log('🏁 Auth: Loading complete')
-      } catch (error) {
-        console.error('💥 Auth: Load session failed:', error)
-        // Don't fail completely on error - still set loading to false
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    loadSession()
-  }, [])
-
-  // Listen for auth changes
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setSession(session)
-        setUser(session?.user || null)
-
-        if (session?.user) {
-          await loadUserData()
-        } else {
+        // Handle different types of errors
+        if (result.error.message?.includes('Profile not found')) {
+          console.log('👤 Auth: User authenticated but no profile found - this is OK for new users')
           setProfile(null)
           setOrganization(null)
+          setError('Profile setup required')
+          return true // Still considered successful - user can create profile
+        }
+
+        if (result.error.message?.includes('organization')) {
+          console.log('🏢 Auth: Organization not found - continuing without organization')
+          setProfile(result.profile)
+          setOrganization(null)
+          setError(null) // This is not an error - users don't need organizations
+          return true
+        }
+
+        // For other errors, retry if we haven't exceeded max attempts
+        if (attemptNumber < MAX_RETRIES - 1) {
+          console.log(`🔄 Auth: Retrying in ${RETRY_DELAY}ms...`)
+          setTimeout(() => {
+            loadUserData(attemptNumber + 1)
+          }, RETRY_DELAY)
+          return false
+        } else {
+          setError(`Authentication error: ${result.error.message}`)
+          setProfile(null)
+          setOrganization(null)
+          return false
+        }
+      }
+
+      // Success case
+      console.log('✅ Auth: User data loaded successfully')
+      console.log('👤 Profile:', !!result.profile)
+      console.log('🏢 Organization:', !!result.organization)
+
+      setProfile(result.profile)
+      setOrganization(result.organization)
+      setError(null)
+      setRetryCount(0) // Reset retry count on success
+      return true
+
+    } catch (err: any) {
+      console.error('💥 Auth: Exception loading user data:', err)
+
+      // Don't retry on network/parse errors - these are usually temporary
+      if (err.name === 'TypeError' || err.message?.includes('fetch')) {
+        setError('Network error - please check your connection')
+      } else if (attemptNumber < MAX_RETRIES - 1) {
+        console.log(`🔄 Auth: Retrying after exception in ${RETRY_DELAY}ms...`)
+        setTimeout(() => {
+          loadUserData(attemptNumber + 1)
+        }, RETRY_DELAY)
+        return false
+      } else {
+        setError('Failed to load user data')
+      }
+
+      setProfile(null)
+      setOrganization(null)
+      return false
+    }
+  }, [])
+
+  // Initialize authentication - only run once
+  useEffect(() => {
+    let mounted = true
+    let initAttempted = false
+
+    const initializeAuth = async () => {
+      if (initAttempted) return
+      initAttempted = true
+
+      try {
+        console.log('🔍 Auth: Initializing authentication...')
+
+        const { data: { session }, error } = await supabase.auth.getSession()
+
+        if (!mounted) return
+
+        if (error) {
+          console.error('❌ Auth: Session initialization error:', error)
+          setError(`Authentication error: ${error.message}`)
+          setUser(null)
+          setSession(null)
+          setProfile(null)
+          setOrganization(null)
+        } else {
+          console.log('✅ Auth: Session initialized:', !!session)
+          setUser(session?.user ?? null)
+          setSession(session)
+
+          if (session?.user) {
+            // Load user data but don't block on it
+            const success = await loadUserData()
+            if (!success) {
+              console.warn('⚠️ Auth: User data loading failed, but user is still authenticated')
+            }
+          }
+        }
+      } catch (error: any) {
+        console.error('💥 Auth: Initialization failed:', error)
+        if (mounted) {
+          setError('Authentication system unavailable')
+        }
+      } finally {
+        if (mounted) {
+          console.log('🏁 Auth: Initialization complete')
+          setLoading(false)
+        }
+      }
+    }
+
+    initializeAuth()
+
+    return () => {
+      mounted = false
+    }
+  }, []) // Remove loadUserData from deps to prevent infinite loops
+
+  // Auth state change listener - only run once
+  useEffect(() => {
+    let mounted = true
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (!mounted) return
+
+        console.log('🔐 Auth: State change event:', event)
+
+        setUser(session?.user ?? null)
+        setSession(session)
+        setError(null) // Clear errors on auth state change
+
+        if (session?.user && event !== 'TOKEN_REFRESHED') {
+          console.log('👤 Auth: Loading user data after auth change...')
+          await loadUserData()
+        } else if (!session?.user) {
+          console.log('👋 Auth: User signed out, clearing data')
+          setProfile(null)
+          setOrganization(null)
+          setError(null)
         }
 
         setLoading(false)
       }
     )
 
-    return () => subscription.unsubscribe()
-  }, [loadUserData])
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
+    }
+  }, []) // Remove loadUserData from deps
 
-  // Sign in
+  // Sign in with error handling
   const signIn = useCallback(async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    })
-    
-    return { error }
-  }, [])
+    setError(null)
+    setLoading(true)
 
-  // Sign up
-  const signUp = useCallback(async (email: string, password: string, metadata = {}) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: metadata
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      })
+
+      if (error) {
+        setError(error.message)
       }
-    })
-    
-    return { error }
+
+      return { error }
+    } catch (err: any) {
+      const errorMsg = 'Sign in failed - please try again'
+      setError(errorMsg)
+      return { error: { message: errorMsg } }
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
-  // Sign out
+  // Sign up with error handling
+  const signUp = useCallback(async (email: string, password: string, metadata = {}) => {
+    setError(null)
+    setLoading(true)
+
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: metadata
+        }
+      })
+
+      if (error) {
+        setError(error.message)
+      }
+
+      return { error }
+    } catch (err: any) {
+      const errorMsg = 'Sign up failed - please try again'
+      setError(errorMsg)
+      return { error: { message: errorMsg } }
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  // Sign out with error handling
   const signOut = useCallback(async () => {
-    console.log('Signing out user')
-    // Clear state immediately to prevent stale data
-    setUser(null)
-    setProfile(null)
-    setOrganization(null)
-    setSession(null)
-    
-    await supabase.auth.signOut()
+    try {
+      console.log('👋 Auth: Signing out user')
+
+      // Clear state immediately to prevent stale data
+      setUser(null)
+      setProfile(null)
+      setOrganization(null)
+      setSession(null)
+      setError(null)
+      setRetryCount(0)
+
+      await supabase.auth.signOut()
+    } catch (error: any) {
+      console.error('❌ Auth: Sign out error:', error)
+      // Still clear state even if sign out fails
+      setUser(null)
+      setProfile(null)
+      setOrganization(null)
+      setSession(null)
+      setError(null)
+    }
   }, [])
 
-  // Update profile
+  // Update profile with error handling
   const updateProfile = useCallback(async (updates: ProfileUpdate) => {
-    if (!user) return { error: 'No user logged in' }
-
-    // Type assertion to work around Supabase typing issue
-    const profilesTable = supabase.from('profiles') as any
-    const { error } = await profilesTable
-      .update(updates)
-      .eq('id', user.id)
-
-    if (!error && profile) {
-      setProfile({ ...profile, ...updates } as Profile)
+    if (!user) {
+      const error = 'No user logged in'
+      setError(error)
+      return { error }
     }
 
-    return { error }
+    try {
+      setError(null)
+
+      // Type assertion to work around Supabase typing issue
+      const profilesTable = supabase.from('profiles') as any
+      const { error } = await profilesTable
+        .update(updates)
+        .eq('id', user.id)
+
+      if (error) {
+        setError(error.message)
+        return { error }
+      }
+
+      if (profile) {
+        setProfile({ ...profile, ...updates } as Profile)
+      }
+
+      return { error: null }
+    } catch (err: any) {
+      const errorMsg = 'Failed to update profile'
+      setError(errorMsg)
+      return { error: { message: errorMsg } }
+    }
   }, [user, profile])
 
-  // Check if user has specific role
+  // Check if user has specific role (graceful fallback)
   const hasRole = useCallback((role: string) => {
-    return profile?.role === role
+    if (!profile?.role) {
+      console.warn('⚠️ Auth: No profile role available for role check')
+      return false
+    }
+    return profile.role === role
   }, [profile?.role])
 
-  // Check if user can access resource (role hierarchy)
+  // Check if user can access resource (graceful fallback)
   const canAccess = useCallback((requiredRole: string) => {
-    if (!profile?.role) return false
-    return hasPermission(profile.role, requiredRole)
+    if (!profile?.role) {
+      console.warn('⚠️ Auth: No profile role available for access check')
+      return false
+    }
+    try {
+      return hasPermission(profile.role, requiredRole)
+    } catch (err) {
+      console.error('❌ Auth: Permission check failed:', err)
+      return false
+    }
   }, [profile?.role])
 
   const value: AuthContextType = useMemo(() => ({
@@ -174,22 +362,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     profile,
     organization,
     loading,
+    error,
     signIn,
     signUp,
     signOut,
     updateProfile,
+    clearError,
     hasRole,
     canAccess
   }), [
     user,
-    session, 
+    session,
     profile,
     organization,
     loading,
+    error,
     signIn,
     signUp,
     signOut,
     updateProfile,
+    clearError,
     hasRole,
     canAccess
   ])
