@@ -12,8 +12,6 @@ import { LocationsPage } from './pages/locations/LocationsPage'
 import ReportsPage from './pages/reports/ReportsPage'
 import TeamPage from './pages/team/TeamPage'
 import SettingsPage from './pages/settings/SettingsPage'
-import VariancePage from './pages/dashboard/VariancePage'
-import AdminPage from './pages/admin/AdminPage'
 
 // Layout component
 import AppLayout from './components/layout/AppLayout'
@@ -85,14 +83,6 @@ function AppRoutes() {
           </ProtectedRoute>
         } />
         
-        <Route path="/variance" element={
-          <ProtectedRoute requiredRole="manager">
-            <AppLayout>
-              <VariancePage />
-            </AppLayout>
-          </ProtectedRoute>
-        } />
-
         <Route path="/team" element={
           <ProtectedRoute requiredRole="company_admin">
             <AppLayout>
@@ -100,15 +90,7 @@ function AppRoutes() {
             </AppLayout>
           </ProtectedRoute>
         } />
-
-        <Route path="/admin" element={
-          <ProtectedRoute requiredRole="super_admin">
-            <AppLayout>
-              <AdminPage />
-            </AppLayout>
-          </ProtectedRoute>
-        } />
-
+        
         <Route path="/settings" element={
           <ProtectedRoute>
             <AppLayout>
