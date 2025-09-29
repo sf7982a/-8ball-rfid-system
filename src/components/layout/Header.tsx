@@ -1,5 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext'
 import { useOrganization } from '@/contexts/OrganizationContext'
+import { config, getEnvironmentStyle } from '@/lib/config'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,10 +16,23 @@ import { Building2, ChevronDown, LogOut, User } from 'lucide-react'
 export function Header() {
   const { user, profile, signOut } = useAuth()
   const { currentOrganization, organizations, switchOrganization } = useOrganization()
+  const envStyle = getEnvironmentStyle()
 
   return (
     <header className="flex h-16 items-center justify-between border-b border-border bg-card px-6">
       <div className="flex items-center gap-4">
+        {/* Environment indicator for non-production */}
+        {!config.app.isProduction && envStyle.badge && (
+          <div
+            className="px-2 py-1 text-xs font-bold rounded"
+            style={{
+              backgroundColor: envStyle.backgroundColor,
+              color: envStyle.color
+            }}
+          >
+            {envStyle.badge}
+          </div>
+        )}
         {profile?.role === 'super_admin' && organizations.length > 1 && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
