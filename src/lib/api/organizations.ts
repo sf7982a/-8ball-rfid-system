@@ -17,10 +17,6 @@ export class OrganizationService {
     return getAllOrganizations()
   }
 
-  static async getOrganizations() {
-    return getAllOrganizations()
-  }
-
   static async getById(id: string) {
     return getOrganizationById(id)
   }
@@ -29,19 +25,11 @@ export class OrganizationService {
     return createOrganization(org)
   }
 
-  static async createOrganization(org: OrganizationInsert) {
-    return createOrganization(org)
-  }
-
   static async update(id: string, updates: OrganizationUpdate) {
     return updateOrganization(id, updates)
   }
 
   static async delete(id: string) {
-    return deleteOrganization(id)
-  }
-
-  static async deleteOrganization(id: string) {
     return deleteOrganization(id)
   }
 
@@ -103,17 +91,12 @@ export async function deleteOrganization(id: string) {
   if (error) throw error
 }
 
-export async function getOrganizationStats(organizationId: string): Promise<OrganizationStats> {
+export async function getOrganizationStats(organizationId: string) {
   // Placeholder for organization statistics
-  console.log('Getting stats for organization:', organizationId)
-
-  // In a real implementation, this would query the database for actual counts
-  const stats: OrganizationStats = {
+  return {
     totalUsers: 0,
     totalBottles: 0,
     totalLocations: 0,
     activityLogs: 0
   }
-
-  return stats
 }

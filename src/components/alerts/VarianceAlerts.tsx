@@ -137,6 +137,15 @@ export function VarianceAlerts({ organizationId, className }: VarianceAlertsProp
     }
   }
 
+  const getDetectionTypeIcon = (type: string) => {
+    switch (type) {
+      case 'theft_suspected': return <Shield className="h-4 w-4 text-red-400" />
+      case 'missing': return <TrendingDown className="h-4 w-4 text-orange-400" />
+      case 'surplus': return <TrendingUp className="h-4 w-4 text-green-400" />
+      case 'consumption_anomaly': return <AlertCircle className="h-4 w-4 text-purple-400" />
+      default: return <AlertTriangle className="h-4 w-4 text-yellow-400" />
+    }
+  }
 
   const getStatusIcon = (status: string) => {
     switch (status) {

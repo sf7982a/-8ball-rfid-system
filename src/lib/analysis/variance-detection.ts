@@ -1,27 +1,18 @@
 // Variance detection and analysis module
 export interface VarianceAlert {
   id: string
-  detection_type: 'missing' | 'surplus' | 'consumption_anomaly' | 'theft_suspected' | 'reconciliation_needed'
+  type: 'theft' | 'consumption' | 'inventory' | 'anomaly'
   severity: 'low' | 'medium' | 'high' | 'critical'
-  detected_at: string
-  resolved_at?: string
-  status: 'open' | 'investigating' | 'resolved' | 'false_positive' | 'ignored'
-  expected_quantity: string
-  actual_quantity: string
-  variance_amount: string
-  pos_sales_count?: number
-  rfid_scan_count?: number
-  confidence_score: string
-  notes?: string
-  bottles?: {
-    brand: string
-    product: string
-    rfid_tag: string
-  }
-  locations?: {
-    name: string
-    code: string
-  }
+  title: string
+  description: string
+  bottleId?: string
+  locationId?: string
+  organizationId: string
+  detectedAt: string
+  resolvedAt?: string
+  status: 'active' | 'investigating' | 'resolved' | 'false_positive' | 'open' | 'ignored'
+  confidence: number
+  metadata?: Record<string, any>
 }
 
 export interface BrandVarianceData {
@@ -61,11 +52,11 @@ export async function detectVarianceAlerts(
   return []
 }
 
-export async function createVarianceAlert(alert: Omit<VarianceAlert, 'id' | 'detected_at'>): Promise<VarianceAlert> {
+export async function createVarianceAlert(alert: Omit<VarianceAlert, 'id' | 'detectedAt'>): Promise<VarianceAlert> {
   const newAlert: VarianceAlert = {
     ...alert,
     id: crypto.randomUUID(),
-    detected_at: new Date().toISOString()
+    detectedAt: new Date().toISOString()
   }
 
   console.log('Created variance alert:', newAlert)
@@ -84,7 +75,7 @@ export async function getVarianceAlerts(
   organizationId: string,
   filters: {
     status?: VarianceAlert['status']
-    detection_type?: VarianceAlert['detection_type']
+    type?: VarianceAlert['type']
     severity?: VarianceAlert['severity']
     limit?: number
   } = {}
@@ -97,9 +88,7 @@ export async function getVarianceDetections(
   organizationId: string,
   options: {
     timeRange?: { start: Date; end: Date }
-    detection_type?: VarianceAlert['detection_type']
-    severity?: VarianceAlert['severity']
-    status?: VarianceAlert['status']
+    type?: 'theft' | 'consumption' | 'inventory' | 'anomaly'
     limit?: number
   } = {}
 ): Promise<VarianceAlert[]> {
