@@ -39,9 +39,34 @@ export const BOTTLE_SIZES = [
   '3L'
 ] as const
 
+export const BOTTLE_TIERS = [
+  'rail',
+  'call',
+  'premium',
+  'super_premium',
+  'ultra_premium'
+] as const
+
+export const BOTTLE_TIER_LABELS = {
+  'rail': 'Rail',
+  'call': 'Call',
+  'premium': 'Premium',
+  'super_premium': 'Super Premium',
+  'ultra_premium': 'Ultra Premium'
+} as const
+
 export type BottleType = typeof BOTTLE_TYPES[number]
 export type BottleStatus = typeof BOTTLE_STATUSES[number]
 export type BottleSize = typeof BOTTLE_SIZES[number]
+export type BottleTier = typeof BOTTLE_TIERS[number]
+
+export interface Tier {
+  id: string
+  name: BottleTier
+  display_name: string
+  description: string
+  sort_order: number
+}
 
 export interface BottleFilters {
   search?: string

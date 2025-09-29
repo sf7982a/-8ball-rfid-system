@@ -1,4 +1,4 @@
-import type { Bottle, BottleWithLocation, BottleFilters, BottleSortConfig, Location } from '../../types/inventory'
+import type { Bottle, BottleWithLocation, BottleFilters, BottleSortConfig, Location, Tier } from '../../types/inventory'
 import { supabase } from '../supabase'
 
 // Convert size string (e.g., "750ml", "1L") to numeric ml value
@@ -164,11 +164,23 @@ export class BottleService {
   }
 
   static async createBottle(organizationId: string, bottleData: any): Promise<Bottle> {
+    // Get default tier_id if not provided
+    let tierId = bottleData.tierId
+    if (!tierId) {
+      const defaultTier = await TierService.getDefaultTier()
+      tierId = defaultTier?.id
+    }
+
+    if (!tierId) {
+      throw new Error('Unable to determine tier for bottle. Please contact support.')
+    }
+
     const { data, error } = await supabase
       .from('bottles')
       .insert({
         organization_id: organizationId,
         location_id: bottleData.locationId || null,
+        tier_id: tierId,
         rfid_tag: bottleData.rfidTag,
         brand: bottleData.brand,
         product: bottleData.product,
@@ -210,9 +222,16 @@ export class BottleService {
   }
 
   static async createBottlesBulk(organizationId: string, bottlesData: any[]): Promise<Bottle[]> {
+    // Get default tier if needed
+    const defaultTier = await TierService.getDefaultTier()
+    if (!defaultTier) {
+      throw new Error('Unable to determine default tier for bottles. Please contact support.')
+    }
+
     const insertData = bottlesData.map(bottleData => ({
       organization_id: organizationId,
       location_id: bottleData.locationId || null,
+      tier_id: bottleData.tierId || defaultTier.id,
       rfid_tag: bottleData.rfidTag,
       brand: bottleData.brand,
       product: bottleData.product,
@@ -502,5 +521,68 @@ export class LocationService {
     }
 
     return true
+  }
+}
+
+export class TierService {
+  static async getTiers(): Promise<Tier[]> {
+    const { data, error } = await supabase
+      .from('tiers')
+      .select('*')
+      .order('sort_order')
+
+    if (error) {
+      console.error('Error fetching tiers:', error)
+      throw error
+    }
+
+    return (data || []).map(row => ({
+      id: row.id,
+      name: row.name,
+      display_name: row.display_name,
+      description: row.description,
+      sort_order: row.sort_order
+    }))
+  }
+
+  static async getDefaultTier(): Promise<Tier | null> {
+    // Default to 'call' tier which is the most common
+    const { data, error } = await supabase
+      .from('tiers')
+      .select('*')
+      .eq('name', 'call')
+      .single()
+
+    if (error) {
+      console.error('Error fetching default tier:', error)
+      // Fallback: get any tier
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from('tiers')
+        .select('*')
+        .order('sort_order')
+        .limit(1)
+        .single()
+
+      if (fallbackError) {
+        console.error('Error fetching fallback tier:', fallbackError)
+        return null
+      }
+
+      return fallbackData ? {
+        id: fallbackData.id,
+        name: fallbackData.name,
+        display_name: fallbackData.display_name,
+        description: fallbackData.description,
+        sort_order: fallbackData.sort_order
+      } : null
+    }
+
+    return {
+      id: data.id,
+      name: data.name,
+      display_name: data.display_name,
+      description: data.description,
+      sort_order: data.sort_order
+    }
   }
 }
